@@ -4,7 +4,11 @@ Practical implementation instructions for **FINAL FANTASY XII: The Zodiac Age (P
 
 This manual brings together the native engine interfaces, data layouts and implementation patterns used in **Ivalice Together** and **Ivalice Reforged**. It explains how to connect player input, character ownership, combat commands, effects, UI and persistent data while preserving the game's native behavior.
 
-Updated: 12 October 2026. 31 chapters, each available as a separate file.
+Updated: 12 October 2026. The 31 chapter files are the maintained source of this manual.
+
+## Scope and availability
+
+This repository contains documentation. Game assets, mod source trees, internal tools and project data are not included. Names such as `irfq` and `irfj_result` identify parts of the reference implementation; they are not APIs supplied by this repository. Map their described responsibilities to the source and tools available in your own project. If a required implementation detail is unavailable, identify the missing input instead of inventing paths, code or data.
 
 ## What you will find
 
@@ -83,5 +87,3 @@ When implementing a change:
 Addresses and private allocations describe specific implementations. Read them with their surrounding contract; they are not universal constants for every game build or mod setup.
 
 XII addresses use preferred image base `0x120000` unless explicitly identified as RVA. Resolve the runtime base and authenticate instruction bytes and hook ownership.
-
-A [single-file edition](Ivalice_Modding_Manual.md) is also available for sharing the complete manual with an AI assistant.

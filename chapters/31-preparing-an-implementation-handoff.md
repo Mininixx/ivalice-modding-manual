@@ -2,7 +2,7 @@
 
 [← Chapter index](../README.md#chapters)
 
-Give the next AI a precise implementation contract.
+Give the next AI a precise implementation contract. Link the relevant chapters and provide the actual source files or accessible repository for the target project. This manual does not include the original mods' internal source trees, registries or tools. Identify which reference symbols have equivalents in the supplied code and which required inputs are missing; do not ask the next assistant to open unpublished paths.
 
 ## Start from the correct release
 Identify the installed executable, current Lua/native dependencies and the actual frozen modules. Keep standalone Ivalice Together and Reforged as separate variants. Apply shared control fixes to each variant's own authenticated base; never package the integrated runtime as the standalone co-op release.

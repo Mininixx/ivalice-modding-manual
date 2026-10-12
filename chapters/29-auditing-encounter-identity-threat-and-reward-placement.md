@@ -5,7 +5,7 @@
 Review a whole region, including combat NPCs and reachable AI actions.
 
 ## Work within the regional content rules
-Before changing Reforged enemies, loot, chests, equipment, passives or hunt rewards, read `IvaliceReforged/memory/20260925_enemy_distribution/criterios_20260926.md` and the current regional donor rules. Keep this content out of standalone Ivalice Together.
+Before changing enemies, loot, chests, equipment, passives or hunt rewards, document the target region's allowed donor species, protected encounters, progression tiers, population totals and explicit reuse exceptions. Use the current game/mod data and the requested design constraints. If a proposed change depends on an unspecified rule, establish that constraint before changing content. The original Reforged regional design notes are not included in this repository; the workflow below describes the checks to apply in your own project. Keep Reforged-specific content changes out of standalone Ivalice Together.
 
 Compare candidate families against the native population of every subarea and the current mod roster. A new name, recolor or alternate boss/Trial alias does not create a different species. Do not replace ordinary enemies with boss bodies. Preserve protected hunts and story actors; permission to borrow a model is not permission to rewrite its source encounter.
 
