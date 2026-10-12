@@ -2,39 +2,37 @@
 
 [← Chapter index](../README.md#chapters)
 
-Use one authoritative cost view and migrate before granting or purchasing nodes.
+Board position, license record, acquired-license state and the content granted by a license are separate data relationships.
 
-## Give each board one authoritative view
-Selection, preview, preflight, LP debit and description must use the same board-aware cost view (`irlay_cost_view`). Ownership takes precedence over affordability: an owned license remains owned even at zero LP. The mini-board path at `0x55F96F` calls `0x323600` with flags 0; the open board uses flags 1, so both routes need the ownership policy.
+## Trace a stock purchase
 
-Keep class-specific names, help, icons and equipment grants keyed by class and license. A shared native string or license ID must not silently replace the presentation/effect on another class. Use the assigned primary class for D205 ownership and icon lookup, including aliases 9/10/11.
+Start with one known native license. Follow selection, LP cost display, affordability, adjacency, purchase, ownership update and its actual grant. Follow the description and icon lookup separately. A string-table index is not necessarily the license ID or acquired-bit index.
 
-## Use numeric equipment progression and reachable regions
-Name equipment nodes sequentially: Armor 1, Armor 2, Armor 3, and so on. Do not restore Gear A/B labels, free “included” partner nodes or hidden A-before-B equipment requirements. Preserve ordinary board adjacency, explicit level regions and LP payment.
+On the reference executable, the menu path near `0x55F96F` calls `0x323600`; flags differ from another board-view route. Purchase/guard routines near `0x323910` and `0x323D10` provide additional entry points. Recover their arguments from native callers rather than using a guessed purchase prototype.
 
-Use the physical `board_phase` region as the source of level/phase metadata. Early-region nodes must not inherit a later level barrier from stale stage metadata. Keep paths reachable from Essentials within the intended region and fit nodes inside the board silhouette. Match icon type and number to the actual grant, not an old title.
+In the battle-record layout used by this path, LP is a DWORD at `+0x190` and license ownership data begins at `+0x194`. Establish the extent and mapping from native readers before editing it. This document supplies no alternative saved layout or class remapping.
 
-The appended paid equipment licenses `1420–1464` retain their IDs, grants and saved ownership. The legacy raw tables remain `9 × 1420`; use the separate bounded appended cost/level tables rather than stretching raw data and invalidating relocations. The class icon map covers `9 × 1465`, with 205 board cells per canonical class in this layout.
+## Decode grants without replacing their IDs
 
-Synchronize source/runtime custom-node catalogs, all nine class boards, loaded board binaries, class-qualified native help and icon descriptors. Preserve every supported language atlas. Never infer UI icon correctness from the node name alone.
+The PC license-record parser must first obtain each record's declared extent. In the record family used here, byte `+5` is a type discriminator. Some action-grant families use eight 16-bit values beginning at `+8`, with `0xFFFF` as an unused entry. Apply that interpretation only to types whose native consumers confirm it.
 
-## Preserve sparse saved ownership
-| Battle KEEP field | D205 layout |
-| --- | --- |
-| `+0x190` | LP, unsigned 32-bit |
-| `+0x194` | Sparse ownership-bit region |
-| `+0x1BC` | Low five bits for appended ownership |
-| `+0x1BE` | Layout marker `0xD205`, 16-bit |
-| `+0x1C0` | Receipt `0x70` |
-| `+0x1C1` | Marker `0xB6` |
-| `+0x1C2` | Level byte |
-| `+0x1C3`, `+0x1C4`, `+0x1C5` | Primary, secondary (`255`), visible class |
+Preserve the distinction between a node that grants equipment access, an action, an augment or another license-dependent capability. Do not infer the grant type from the icon color or displayed name.
 
-Use `irfl_has`, `irfl_set` and `irfl_bit_index` instead of treating license ID as a direct bitmap index. A bulk 46-byte zero from `+0x194` overlaps metadata at `+0x1BE` and `+0x1C1`; do not perform it after initializing those markers. Keep native purchase/guard behavior at `0x323910` / `0x323D10` compatible with the mapped layout.
+## Bit arithmetic is separate from mapping
 
-## Apply migrations before purchase
-Run a required migration before selection and before automatic grants. Exclude automatically granted licenses from purchase refunds, record migration once and preserve already owned licenses. A new balance bonus on an owned node does not require repurchase or a retroactive LP debit. Preserve intentional skill-upgrade aliases instead of treating every shared owned bit as a blocked-purchase defect.
+Once the native bit index has been established, read it with explicit bounds:
+
+```python
+def acquired(bitmap, bit_index):
+    if bit_index < 0 or bit_index >= len(bitmap) * 8:
+        raise ValueError('license bit outside decoded bitmap')
+    return bool(bitmap[bit_index // 8] & (1 << (bit_index % 8)))
+```
+
+This helper does not convert a license ID to a bit index. Recover that mapping before calling it. Writing a bit directly also omits native purchase side effects and should not stand in for the purchase path.
+
+Keep owned-state checks separate from affordability. Preserve native board adjacency, unlock rules, job interactions and LP debit. A changed label or LP cost must agree across selection, help and purchase; translating a label must not change which license is acquired.
 
 ---
 
-[← Previous chapter](17-saving-new-resources-inside-each-save.md) · [Chapter index](../README.md#chapters) · [Next chapter →](19-extracting-effects-from-final-fantasy-x.md)
+[← Previous chapter](17-native-save-boundaries.md) · [Chapter index](../README.md#chapters) · [Next chapter →](19-native-effect-assets.md)

@@ -2,29 +2,33 @@
 
 [← Chapter index](../README.md#chapters)
 
-Treat a transition as a change of ownership, not merely a new map number.
+The lifetime of an actor, camera or menu object can end before a new area becomes visible. Native transition state must delimit access to these objects.
 
-## Observe several signals
-The session layer reads battle, location, party layouts, user-control readiness, native menu ownership and modal state. The location structure has two area fields (`+0x1244`, `+0x125C`); they can disagree while a transition is in progress. A non-null actor pointer alone is insufficient permission to keep controlling it.
+## Distinguish persistent and live state
 
-The area-transition source distinguishes the current area-slot table, pending area and a transition request containing destination, spawn and previous area. Preserve destination/spawn semantics. Sending every player to a guessed coordinate is not a substitute for a valid native route.
+Persistent character data may survive an area change while its actor and model are destroyed. Store persistent character identifiers for long-lived settings; resolve current handles and pointers for operations in the world.
 
-## Retire before reacquiring
-1. Revoke active movement and command publications.
-2. Hide or retire owned targets, circles and transient panels.
-3. Cancel resource leases and audio tied to the old scene.
-4. Wait for a coherent new session and resolve fresh actor identities.
-5. Reacquire only the control and presentation that the new scene permits.
+In the reference location layout, fields at `+0x1244` and `+0x125C` represent different area-related values. Their temporary disagreement is a transition clue, not sufficient evidence of corruption. Recover the location pointer and the writers of both fields before using them as an admission rule.
 
-Interactions also need an owner: a follower’s proximity, use prompt and activation source must describe the same actor. Native dialogs and story events should remain native and should supersede ordinary battle UI. Keep rollback for partially acquired interaction state.
+## Define an extension lifecycle
 
-## Prefer an actionable chest/NPC prompt
-In `private_player_interaction`, ignore zero handles and stale aggregate publications. Search all candidate slots for a usable `state >= 2` before falling back to a proximity-only state. A high-index outer/proximity entry must not hide a lower-index usable chest.
+An extension that owns transient objects should have explicit states:
 
-In `_world_interactions`, consult `native_interaction_router.prompt_interaction(player)` when the aggregate is absent **or not actionable**. Prefer an exact actionable descriptor for that player, with current handle and can-use status. Route Confirm to that native interaction before the battle-menu fallback. Keep native dialogue ownership and partial-acquisition cleanup intact.
+```text
+inactive -> acquiring scene -> active -> retiring -> inactive
+```
 
-## Keep facing behavior separate
-Do not reintroduce delayed facing corrections on area entry or character selection. Preserve the current native orientation behavior unless orientation work is explicitly requested. A post-load rotation write can produce a visible wrong-to-correct turn even when its final angle is correct.
+Acquisition requires the native world, issuer and target objects needed for the feature. Retirement prevents new requests, detaches extension-owned render objects, discards queued handles from the old scene and releases owned resources. Reacquisition starts with fresh native identities.
+
+Changing only the visible map number is insufficient if the engine can reload the same area. Include a scene lifetime or native-root identity in the extension's own revision tracking. Increment that revision when retiring the scene, and reject queued requests carrying an older value.
+
+## Keep native interaction precedence
+
+A native interaction prompt represents a specific target and use state. Find the prompt builder and activation path for the particular object type: a treasure, NPC and save crystal need not share all rules. Distance alone does not establish availability.
+
+When an extension handles Confirm, first decide whether an actionable native interaction owns that input. If so, preserve its activation and dialogue route. A separate battle menu must not consume the same edge and silently replace the interaction.
+
+Do not reposition actors to simulate a native transition or interaction. Preserve destination/spawn data and the engine's initialization order. A delayed corrective position or facing write is visible behavior, not a substitute for understanding that order.
 
 ---
 

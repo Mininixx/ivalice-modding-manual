@@ -2,22 +2,36 @@
 
 [← Chapter index](../README.md#chapters)
 
-Follow the event mapping; matching a spell name or bank alone is insufficient.
+Resolve audio from the native event that actually plays it. A spell, weapon or animation name does not uniquely identify a sound resource.
 
-## The extraction chain
-Follow this chain: effect OEF audio slot → `SeSep   ` record DWORD at `+8` → sound-ID/event mapping in the binary `*_common.txt` table → FEV event name → matching FSB5 stream name → decoded WAV.
+## Trace the caller before decoding a bank
 
-Do not equate an event index with a decoder's subsong index. For NulFrost, event 1123 maps to subsong 1242. Resolve the mapping explicitly; do not extrapolate a constant offset from another bank.
+Begin with a stock sound event: ordinary weapon contact, a critical impact, an interface action or a native spell. Trace from the animation/action event to the audio request, recording the event discriminator, bank/resource identity and selected cue.
 
-Preserve distinct cues until their triggers are known. Keep Demi main cue 9021 separate from additional cue 14069; do not combine them without resolving their event timing.
+For the reference executable, weapon-hit investigation can start near `0x31ADB0`; one path uses sound class 2 and an output field at `+0x34`. Event dispatch around `0x46C250` distinguishes event and cue kinds. Follow the actual branch taken by the stock action instead of assuming every event in a weapon bank means contact.
 
-Decode the matched ADPCM stream to the required PCM format; the current mixer assets use 16-bit stereo PCM at 48 kHz. Keep extraction separate from trimming, mixing and normalization. Deduplicate identical streams while retaining each event mapping, including shared Break cue 9061.
+The complete audio-request ABI and bank codec are not specified here. Do not cast those addresses to a guessed “play WAV” signature or apply another game's bank decoder solely because the file extension looks familiar.
 
-## A correct weapon bank can still produce the wrong cue
-For Ninja Sword bank `se286`, follow the normal-hit path through `0x31ADB0`, with sound class 2 and its output at `+0x34`; event 2 in `0x46C250` selects kind-0 cues 3–5. Event 3/kind 0/cue 10 is a different sound.
+## Keep identities separate
 
-Use the event actually reached by the accepted native hit. A swing, contact, critical hit and finishing flourish may share a bank while using different entries. Resolve the actual asset behind an internal symbol: `NinjaHit` can reference a replacement WAV rather than the native bank.
+Maintain a mapping with these columns:
+
+| Identity | Meaning |
+| --- | --- |
+| Action/animation event | Why playback was requested |
+| Event discriminator and cue | Which native branch selected it |
+| Bank/resource key | Which resource the engine loads |
+| Encoded stream | The actual audio payload within that resource |
+| Decoded format | Channels, rate, sample format and duration |
+
+An event index and an extraction tool's stream/subsong index can differ. Resolve the mapping from the native tables or parser rather than adding a guessed constant offset.
+
+## Preserve playback behavior
+
+Keep impact, swing, critical and finishing cues distinct until their triggers are established. Decode an unchanged resource before trimming or replacing it. Preserve loop points and channel layout where the native event expects them.
+
+For replacement audio, retain the native cue's scheduling, category and spatial parameters. For independently added PCM playback, implement a real audio backend and its lifetime explicitly; [Chapter 26](26-making-added-sounds-follow-the-games-sfx-volume.md) covers category gain. No mixer or predecoded asset collection is assumed.
 
 ---
 
-[← Previous chapter](24-building-blade-aligned-projectiles-with-one-impact.md) · [Chapter index](../README.md#chapters) · [Next chapter →](26-making-added-sounds-follow-the-games-sfx-volume.md)
+[← Previous chapter](24-weapon-animation-and-hit-timing.md) · [Chapter index](../README.md#chapters) · [Next chapter →](26-making-added-sounds-follow-the-games-sfx-volume.md)

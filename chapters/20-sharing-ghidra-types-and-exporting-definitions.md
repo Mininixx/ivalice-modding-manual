@@ -2,26 +2,30 @@
 
 [← Chapter index](../README.md#chapters)
 
-Separate reusable type definitions, program-specific analysis and recovered runtime behavior.
+A useful reverse-engineering handoff includes the binary identity, types, calling conventions and the evidence behind each recovered field.
 
-## Three different kinds of project object
-A Ghidra project can contain imported programs, Version Tracking sessions and shared data-type archives. Each program also owns its own data types; creating a structure there does not automatically share it with other DLLs. Use a shared archive for structures and function definitions that really describe a common engine boundary.
+## Import the intended binary
 
-Copying a structure into a shared archive brings its constituent types along. Check pointer widths, packing, calling conventions and conflicting names rather than assuming similarly named definitions are compatible. Version Tracking transfers must be reviewed and applied to the intended participating program; a comparison does not make both programs one database.
+In Ghidra, create a project and import the exact executable or DLL being studied. Check the detected architecture, compiler specification and image base before analysis. Preserve a SHA-256 fingerprint of that input so addresses cannot silently move to a different build.
 
-## Export small, meaningful surfaces
-For a function catalog, export selected rows and columns from the Functions view to CSV. For shared types, export a C header from the data-type archive. Record the program fingerprint, image base and whether each address is a VA or RVA alongside it. Exporting an enormous decompilation is rarely the best handoff.
+Follow the official [Introduction to Ghidra](https://ghidra.re/ghidra_docs/GhidraClass/Beginner/Introduction_to_Ghidra_Student_Guide.html) for the import and analysis workflow. Imported programs and shared data-type archives serve different purposes: the program stores its analysis, while an archive can share reusable structures across programs.
 
-For the FFX `gMagicFunctions` table at **RVA `0x00864CE8`**, keep the 32-bit pointer-table representation separate from function signatures. A 741-pointer prefix occupies `0xB94` bytes; neither a label nor a pointer establishes a callable C prototype.
+## Recover a type from its consumers
 
-```c
-// A recovered 32-bit address is data until its ABI has been verified.
-uint32_t engine_api_entry;
-// Do not replace it with a guessed function-pointer signature.
-```
+For a candidate field, record access width, signedness, alignment, read/write sites and object lifetime. A decompiler-generated `longlong` is not automatically a pointer, and a repeated offset does not prove that two objects have the same structure.
 
-For each callback that a port needs, inspect its callers, arguments, stack cleanup, return value, ownership and side effects. Write down which meaning is observed in machine code and which remains an inference. A header helps reuse analysis; it cannot supply the host engine that an effect DLL expects.
+Use explicit-width types when the machine access establishes the width. Leave unknown bytes represented as padding or undecoded storage. Do not name unknown fields after the feature you hope they implement.
+
+For a function, inspect multiple callers. Establish which registers or stack slots carry arguments, which registers are live across the call, and whether a returned pointer is borrowed or owned. A function-pointer typedef must reflect that work; a label alone is not a prototype.
+
+## Export small, reusable definitions
+
+Export selected types as a C header and retain the program fingerprint and address convention alongside it. Export a function/address table with columns for preferred VA, RVA, proposed signature and confidence. A header should distinguish confirmed fields from hypotheses.
+
+Do not copy a complete decompilation when a short structure and its relevant callers explain the contract. Conversely, do not distribute a wrapper name without the contract needed to replace it.
+
+Version Tracking can help transfer analysis between binary revisions, but review the matches before applying them. Shared names do not prove shared semantics or byte-compatible layouts.
 
 ---
 
-[← Previous chapter](19-extracting-effects-from-final-fantasy-x.md) · [Chapter index](../README.md#chapters) · [Next chapter →](21-recovering-particle-programs-and-their-timeline.md)
+[← Previous chapter](19-native-effect-assets.md) · [Chapter index](../README.md#chapters) · [Next chapter →](21-native-effect-timelines.md)

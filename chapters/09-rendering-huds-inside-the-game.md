@@ -2,28 +2,44 @@
 
 [← Chapter index](../README.md#chapters)
 
-Publish coherent panel pixels, composite them in D3D11 and preserve the caller’s graphics state.
+A new HUD needs a renderer implemented by the extension. Vanilla does not expose a shared-memory panel protocol or a function that accepts arbitrary desktop-window pixels.
 
-## The panel transport
-Read the panel capacity from the active producer/renderer protocol. A 16-slot co-op layout uses a 128-byte shared header, a 64-byte header per slot and `1024 × 768 × 4` reserved bytes per slot; the extended content layout uses 22 slots. Match the installed layout exactly instead of mixing constants from the two variants.
+## Direct3D 11 integration
 
-Publish dimensions, logical coordinates, visibility, generation and pixel content coherently. Keep publisher/renderer heartbeats and acknowledgements. Reusing a texture when only its position changes is cheaper than uploading unchanged pixels every update. Reject oversized payloads and stale or partial publications.
+Obtain the swap chain/device/context from the game's actual rendering path. A device created for a separate application is not the game's device. Select a render-thread interception point, preserve the original call and draw using the current backbuffer dimensions.
 
-## Match alpha representation to the blend state
-The panel path converts straight RGBA into **premultiplied BGRA**. RGB is multiplied by the final alpha, including opacity. The corresponding blend uses `ONE / INV_SRC_ALPHA`. Multiplying RGB twice darkens edges; feeding straight RGB into this path creates fringes.
+For a basic image panel, the extension creates a texture, shader-resource view, vertex/index buffers, shaders and blend state. Upload new pixels only when their content changes. Place the quad in viewport coordinates and preserve its aspect ratio; display resolution and logical UI coordinates are separate quantities.
 
-```text
-premultiplied_rgb = straight_rgb * alpha
-out_rgb = source_premultiplied_rgb + destination_rgb * (1 - alpha)
+The graphics resources and hook installation are code to supply explicitly. They are not available merely because this manual contains a HUD chapter.
+
+## Choose one alpha representation
+
+For premultiplied color, multiply RGB by alpha once when preparing pixels and use source factor ONE with destination factor INV_SRC_ALPHA. For straight color, retain unmultiplied RGB and use SRC_ALPHA for the source RGB factor. Do not mix these representations.
+
+```cpp
+D3D11_BLEND_DESC desc{};
+auto& rt = desc.RenderTarget[0];
+rt.BlendEnable = TRUE;
+rt.SrcBlend = D3D11_BLEND_ONE;
+rt.DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+rt.BlendOp = D3D11_BLEND_OP_ADD;
+rt.SrcBlendAlpha = D3D11_BLEND_ONE;
+rt.DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+rt.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+rt.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+// CreateBlendState on the game's ID3D11Device; pixels must be premultiplied.
 ```
 
-Do not globally replace every blend state with this one: other native primitives and imported particle materials can have different alpha contracts.
+The byte order of CPU pixels must match the DXGI texture format. BGRA and RGBA are different layouts even when both contain four bytes per pixel.
 
-## Presentation and capture
-Draw panels through the renderer loaded in the game and keep added audio in its in-process mixer. Do not restore an external layered-window fallback. Preserve transport recovery and the capture boundary of the actual renderer/audio consumer.
+## Restore state and rebuild resources
 
-Preserve the D3D11 state you change—render targets, depth/stencil, blend, shaders, buffers, textures, samplers, viewports and scissors. Handle hidden panels, transparent corners, overlap, resize, ultrawide viewports and transport loss without leaking graphics state.
+Restore every pipeline binding changed by the overlay, including render targets, depth/stencil, blend, shaders, buffers, textures, samplers, viewports and scissors. Release temporary COM references after restoring them. Avoid assuming that the game's next draw resets everything.
+
+Before forwarding `ResizeBuffers`, release the extension's backbuffer references and views, then recreate them after success. Microsoft's [ResizeBuffers documentation](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-resizebuffers) explains the reference-lifetime requirement. Handle device removal separately from an ordinary resize.
+
+A flat final-frame HUD does not provide world-space depth or native particle submission. Those require a scene-render boundary; see [Native effect submission](22-native-effect-resources-and-scene-submission.md).
 
 ---
 
-[← Previous chapter](08-a-shared-camera-that-still-respects-the-scene.md) · [Chapter index](../README.md#chapters) · [Next chapter →](10-area-changes-interaction-and-state-retirement.md)
+[← Previous chapter](08-camera-state-collision-and-transitions.md) · [Chapter index](../README.md#chapters) · [Next chapter →](10-area-changes-interaction-and-state-retirement.md)

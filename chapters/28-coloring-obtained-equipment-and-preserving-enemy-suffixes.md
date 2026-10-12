@@ -2,24 +2,31 @@
 
 [← Chapter index](../README.md#chapters)
 
-Follow the formatter and native identity rules rather than patching visible strings by guess.
+Native display strings contain identity, localization and formatting rules. Treat them as structured UI output rather than raw English text.
 
-## Check whether the hook is actually installed
-Initialize equipment-message color hooks only after `irf_code_blob` and their other required symbols are published. Authenticate the nine-byte site at `0x536C0B` and its current owner before installation.
+## Follow the acquisition formatter
 
-The implementation handles acquisition messages 24/25 after native formatting and maps 495 single-class equipment entries. Preserve articles, quantities, pluralization and a final color reset. Shared consumables and gil retain their normal presentation. A colored inventory name is not proof that the combat-log formatter uses the same path.
+Start from a stock item-acquisition message and trace the formatter that receives its item identity and quantity. Identify the category, lookup table, localized grammar and any native color controls. Prefer modifying the formatting stage to rewriting item names globally.
 
-## A display suffix is not an actor ID
-Use the native suffix convention for target names. The native path checks the signed field at `BWEI+0x102`; the negative case reads the 16-bit instance value at `+0x100`. A zero instance has no suffix; positive values cycle through letters:
+The reference executable's formatting investigation includes instruction site `0x536C0B` and functions around `0x263A10`, `0x272CE0`, `0x24ABE0` and `0x2B58F0`. Recover the specific call path and arguments for the intended message; this list is not a set of interchangeable text APIs.
+
+Preserve quantity, articles, pluralization and the formatter's termination/reset behavior. A combat-log string and an inventory label can use different paths. Decode the game's character/control encoding before inserting bytes; ordinary UTF-8 or terminal escape codes are not automatically accepted.
+
+## Native enemy suffixes
+
+In the native enemy-name path, the signed field at `BWEI+0x102` controls a branch that reads the 16-bit instance value at `+0x100`. For the eligible branch, a zero instance has no suffix; positive values wrap over 26 letters:
 
 ```python
-suffix = '' if instance == 0 else chr(ord('A') + (instance - 1) % 26)
+def instance_suffix(instance):
+    if instance < 0:
+        raise ValueError('expected an unsigned instance value')
+    return '' if instance == 0 else chr(ord('A') + (instance - 1) % 26)
 ```
 
-Thus 27 is A, 52 is Z and 53 is A. Use the native eligibility conditions as well as the modulo rule. Display letters may repeat; never identify actors by the rendered name or suffix. Selection, cancellation and damage still need the full authenticated handle.
+This formula does not implement the preceding native eligibility branch or locate BWEI. Recover those from the native caller before applying it to an actor.
 
-The formatting chain includes `0x263A10`, `0x272CE0`, `0x24ABE0` and `0x2B58F0`. Verify the module actually loaded by the installed executable: an older loose source tree can disagree with the frozen program that is producing the UI.
+Display letters can repeat: 27 maps to A. Never use a formatted name or its suffix to identify a target. Commands and results require the full live handle independently of what the UI displays.
 
 ---
 
-[← Previous chapter](27-creating-convincing-weapon-surfaces-without-changing-geometry.md) · [Chapter index](../README.md#chapters) · [Next chapter →](29-auditing-encounter-identity-threat-and-reward-placement.md)
+[← Previous chapter](27-creating-convincing-weapon-surfaces-without-changing-geometry.md) · [Chapter index](../README.md#chapters) · [Next chapter →](29-encounter-identity-and-reward-placement.md)

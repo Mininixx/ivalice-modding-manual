@@ -2,35 +2,42 @@
 
 [← Chapter index](../README.md#chapters)
 
-Give each player steering ownership while retaining the game’s movement machinery.
+Movement work starts at the native movement consumer. The engine must remain responsible for collision, slopes, animation and navigation state.
 
-## The working boundary
-The useful interception point is the movement consumer, not the character’s final world position. For this executable build, the detour begins at **VA `0x2E4380`**. Its context exposes the actor through `context+0x30` and the physics payload through `context+0xB8`. The generated cave accepts only the owned P2/P3 actor and the eligible native mode (`r8d == 0`). All other actors continue through the displaced native prologue.
+## Native entry point
 
-| Physics field | Type | Published value |
-| --- | --- | --- |
-| `+0xA4` | float | Heading in radians |
-| `+0xD0` | float | Movement magnitude |
-| `+0xA0` | float | Pitch, cleared by this steering path |
+For the executable identified in [Address reference](30-native-addresses-and-hook-ownership.md), preferred VA `0x2E4380` begins with `40 53 56 41 56 48 83 EC 60`. It receives a context in `RCX` and an output address in `RDX`; the prologue clears the output. It reads the physics pointer from `context+0xB8`. Treat this as an internal function, not a public movement API.
 
-This feeds the existing movement pipeline. Repeatedly teleporting world coordinates would bypass the contract being used here and is not how this implementation works.
+The associated movement layout uses floating-point heading at physics `+0xA4` and magnitude at `+0xD0`. Context, actor and physics are different objects. Recover their relationship from the caller before writing either value. A character's persistent party record is not a physics object.
 
-## Construct a steering command
-Project the stick onto the camera’s horizontal forward/right basis. Normalize input strength through the native stick-response policy, then choose walk/run magnitude. The sign and axis convention below comes from `player_steering`:
+## Derive a direction without an external helper
+
+The following pure Python calculation takes two horizontal camera basis vectors and a normalized input axis. It computes a desired direction; it does not access or modify the game.
 
 ```python
-# Pseudocode: the basis and actor were authenticated earlier.
-world_x = forward_input * forward.x + right_input * right.x
-world_z = forward_input * forward.z + right_input * right.z
-heading = atan2(world_x, world_z)
-strength = min(1.0, hypot(forward_input, right_input))
-magnitude = run_or_walk_step * native_stick_fraction(strength)
+from math import atan2, hypot
+
+def horizontal_intent(stick_x, stick_y, right_xz, forward_xz, deadzone=0.2):
+    radius = hypot(stick_x, stick_y)
+    if radius <= deadzone:
+        return None, 0.0
+    x = right_xz[0] * stick_x + forward_xz[0] * stick_y
+    z = right_xz[1] * stick_x + forward_xz[1] * stick_y
+    if hypot(x, z) == 0.0:
+        return None, 0.0
+    strength = min(1.0, (radius - deadzone) / (1.0 - deadzone))
+    return atan2(x, z), strength
 ```
 
-Publish to separate per-player command blocks. Reject a zero actor before comparing pointers. Preserve scratch registers, replay displaced instructions and validate every branch destination in the emitted machine code.
+The angle convention and deadzone above are example choices. Establish axis signs, heading convention and magnitude units by following the native leader's input-to-movement path. Do not assume a normalized strength of 1.0 is a valid engine movement magnitude.
 
-## Movement is only one owner
-Follower AI can still turn or approach a target. The implementation has separate facing hooks (`0x236328`, visual-facing call `0x236323`) and an action-approach gate (`0x325E07`). Scope these to the controlled follower. Do not disable native follower lists globally or seize the ordinary leader. Keep the P1 Berserk permission gate separate from follower steering.
+## Interception boundary
+
+A new movement extension must select an eligible live actor before modifying the consumer's inputs. Preserve the original branch for other actors and modes. Apply changes on the native update path, with the instruction's live registers and flags preserved. Repeated world-position writes bypass collision and are a different operation.
+
+Additional manual actors require new input ownership and arbitration with follower AI. Vanilla does not provide independent per-player command blocks. Define those in the extension being written; neither their storage nor a prebuilt controller is assumed here.
+
+Stop using an actor when its scene or identity changes. Reacquire the physics object after a transition. This chapter does not define a complete follower-AI override; inspect turning, approach and idle decisions separately before claiming independent movement is complete.
 
 ---
 

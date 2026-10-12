@@ -2,40 +2,40 @@
 
 [← Chapter index](../README.md#chapters)
 
-Give the next AI a precise implementation contract. Link the relevant chapters and provide the actual source files or accessible repository for the target project. This manual does not include the original mods' internal source trees, registries or tools. Identify which reference symbols have equivalents in the supplied code and which required inputs are missing; do not ask the next assistant to open unpublished paths.
+Give the next developer or AI a concrete native contract and the source needed to implement it. A descriptive helper name is not an implementation.
 
-## Start from the correct release
-Identify the installed executable, current Lua/native dependencies and the actual frozen modules. Keep standalone Ivalice Together and Reforged as separate variants. Apply shared control fixes to each variant's own authenticated base; never package the integrated runtime as the standalone co-op release.
+## Establish the vanilla baseline
 
-Create staging from the current version. Preserve layered successor code that may not exist in loose sources or old builders. For a frozen executable, compare module/function structure before composing the smallest change; an old executable is not a safe replacement for one matching function.
+Identify the executable by hash and record the relevant game-data hashes. State which stock behavior is being changed and which native behavior must remain. Provide accessible source files for any new extension code; do not refer to an unpublished directory or a DLL whose interface is unspecified.
 
-## Follow the owner through the full operation
-1. Define the trigger and intended behavior.
-2. Identify the native input, queue, result, renderer, audio or save-stream boundary.
-3. Specify actor/member identity, generation, area and lifetime.
-4. Preserve existing ownership, cancellation and failure cleanup.
-5. Synchronize producers, consumers, layouts, content registries and authentication dependencies.
-6. Check signatures, bounds, relocation, resources and the release's required integration gate.
-7. Prepare exact file replacements and rollback preimages; install loaded-file changes with the game and affected runtimes closed.
+For each native function call, give the address convention, supported binary, parameter widths, calling convention, return meaning, required thread and object lifetimes. For each binary edit, give the containing format, record identity and byte range.
 
-Respect the user's scope for game launches, saves and runtime instrumentation. A document update does not authorize gameplay changes, collectors or save edits.
+## Separate native facts from new design
+
+Mark an observed instruction or decoded native field as such. Mark a reconstructed prototype as reconstructed. Mark a proposed queue, renderer, serializer or controller as code still to implement unless its complete source is supplied.
+
+A useful unresolved item is specific: “the factory's third argument and destructor ownership are not recovered.” “Use the native helper” hides the same missing information and is not an actionable substitute.
+
+Keep unknown layout bytes and unclassified return states unchanged. Do not create an imaginary API to make an example look complete. Use public documentation for platform APIs and link any real external library explicitly, with its applicable version and license.
 
 ## Copyable implementation brief
+
 ```text
-Objective and triggering action:
-Target variant and current executable/module revision:
-Files and native boundaries to change:
-Address convention and expected original bytes:
-Player/member/actor/scene/generation identity:
-Inputs, outputs and execution owner:
-Required resources and authentication dependencies:
-Admission, payment, completion and cancellation rules:
-UI labels, localization and ownership presentation:
-Compatibility constraints and retirement behavior:
-Installation order, preimages and rollback:
+Requested change and native triggering action:
+Executable filename, SHA-256 and preferred image base:
+Relevant game-data files and hashes:
+Native function/record boundaries and address convention:
+Original bytes or decoded field definitions:
+Parameters, return values, thread and object lifetimes:
+Native behavior to preserve:
+New code to implement, with its inputs and outputs:
+Actual public dependencies, if any:
+Unresolved ABI/layout questions:
+Cancellation, scene transition and teardown behavior:
+Installation files and rollback preimages:
 ```
 
-Keep the handoff focused on the current mechanism, its constraints and the instructions needed to modify it.
+Give the assistant the relevant chapter links and actual input files. Keep runtime investigation, game launches, save operations and publication within the user's authorized scope. Documentation work by itself does not require changing an installation or a save.
 
 ---
 

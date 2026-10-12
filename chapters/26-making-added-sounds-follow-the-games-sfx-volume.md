@@ -2,26 +2,34 @@
 
 [← Chapter index](../README.md#chapters)
 
-Put playback in the game process, follow the right category and compare perceived level.
+Added playback must follow the correct native volume category. Running audio in the game process does not automatically connect it to the game's sound system.
 
-## Read the same category as native sound effects
-The native volume routine at `0x2DE290` caps the setting at 100. The settings object is reached through `0x215E6E0`: SFX is the word at `+0x0A`, category 2, scaled by `/100`. Music at `+8` and voice at `+0x0C` are different categories.
+## Native setting boundary
 
-Resolve addresses with ASLR and verify the build. The implemented reader falls silent while the configuration is unavailable. A roughly 15 ms update changes the master gain of currently playing added voices as well as new voices, without restarting their PCM.
+For the [reference executable](30-native-addresses-and-hook-ownership.md), inspect volume routine `0x2DE290` and the settings pointer at `0x215E6E0`. In the associated settings layout, the SFX value is a WORD at `+0x0A`; music at `+8` and voice at `+0x0C` are separate values. The native volume path caps the setting at 100.
 
-An XAudio2 mixer inside the game process supports game-process audio capture. It is still a custom mixer: it does not automatically inherit native SEAD bank routing, spatialization or reverb. Likewise, a world/HUD renderer executing inside the game addresses a different capture boundary from an external transparent desktop window. Validate actual capture mode instead of treating all overlays as equivalent.
+Resolve the pointer using the live module base and confirm the containing object before reading. Do not dereference the preferred VA as an absolute address in an unrelated process.
 
-## Normalize an asset, then apply the live slider
-Compare integrated loudness, the loudest short window and true peak. For short impacts, full-clip RMS can hide a sharp transient followed by silence; include a short-window measurement and oversampled true peak. Apply asset gain without changing pitch, duration, EQ or dynamics unless that change is intended.
+For an added backend whose gain is defined linearly, the basic conversion is:
 
-Choose gain against representative native effects and allow headroom for overlapping casts. Do not reuse a prior clip's loudness target as a universal standard; individually unclipped files can still overload the combined mix.
-
-```text
-source PCM → measured asset gain → per-event/user trim → live SFX slider
-                                                        → in-process mixer
+```python
+def sfx_gain(native_setting):
+    return max(0, min(100, int(native_setting))) / 100.0
 ```
 
-A linear 20% volume reduction is a gain of 0.8, approximately −1.94 dB; it is not a 20 dB reduction. Trigger contact audio once from the same accepted collision as damage. Cancel or retire owned voices on scene change and avoid replaying every frame while a hit flag remains set.
+This function only converts an already-read value. It is not a native memory reader or audio player.
+
+## Choose a playback route explicitly
+
+Reusing a native cue preserves the native route's category and other supported behavior when its request is constructed correctly. Adding a separate mixer requires initialization, sound loading, voice ownership and cleanup implemented in the extension. It does not inherit native spatialization, reverb or event timing automatically.
+
+Apply updated gain to currently playing added voices as well as new ones. Do not restart audio merely to change volume. Treat unavailable settings and scene retirement according to an explicit playback policy instead of retaining a dangling settings pointer.
+
+## Asset gain and user gain are different
+
+Use a fixed asset-level adjustment to align a replacement with representative native cues, then apply the user's live setting. Retain headroom for overlapping sounds. A file that does not clip individually can still overload a sum.
+
+For linear amplitude gain, a reduction to 80 percent means multiplication by 0.8, approximately −1.94 dB. Do not confuse percentage amplitude, power and decibels. Trigger a contact cue from the same accepted native event as the associated impact, and ensure a persistent flag cannot replay it every frame.
 
 ---
 

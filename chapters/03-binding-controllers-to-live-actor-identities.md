@@ -2,37 +2,35 @@
 
 [← Chapter index](../README.md#chapters)
 
-Keep device, player, party member, actor and visual object identities distinct.
+Separate operating-system input from the game entity that receives it. A controller index, party slot, actor handle and pointer are different identifiers.
 
-## Keep the ownership chain explicit
-| Identity | Responsibility |
-| --- | --- |
-| Physical device | Samples, backend, connection and reconnect policy |
-| Player slot | Menu state, palette and input routing |
-| Persistent party member | Character-specific data |
-| Live actor handle and generation | Current world entity |
-| Model and physics object | Current rendering and movement representation |
+## Sample an actual device
 
-Resolve these identities from the same coherent session snapshot. Party order is not player ownership, an actor address can be reused, and a handle is not a model-array index. Battle layouts begin at `+0x5A48`, stride `0x12`; read the native leader separately at `+0x5AA4`. Choose the intended current/UI/menu layout explicitly.
+On Windows, `XInputGetState(index, &state)` reads one of the XInput user indices 0–3. A successful call supplies button bits, triggers and thumb-stick axes; a disconnected device must produce an unavailable state, not a fallback to another index. See Microsoft's [XInputGetState reference](https://learn.microsoft.com/en-us/windows/win32/api/xinput/nf-xinput-xinputgetstate).
 
-## Isolate XInput, SDL and the desktop owner
-Sample each assigned device once per update. Normalize buttons and axes through its actual backend; a device shown by SDL need not expose an XInput slot. Deduplicate a physical pad represented by both backends rather than assigning the same input to two players. A missing P2/P3 device must not fall back to P1.
+Keep previous and current button masks to distinguish an edge from a held button:
 
-Assign keyboard and mouse to a single player. With desktop owner P1, retain native movement, camera and native game bindings. With desktop owner P2/P3, filter native desktop gameplay input so it cannot also operate P1. Keep permitted native frontends usable under their own input ownership.
+```cpp
+const unsigned pressed  = current & ~previous;
+const unsigned released = previous & ~current;
+const unsigned held     = current & previous;
+```
 
-For P1's replacement menu, read the game's `keymap.ini` and native key conversion table. In the keyboard mapping, `Circle` means Confirm and `Cross` means Cancel. `DecideButton` selects the physical gamepad face button; applying it to keyboard semantics can reverse Space/Enter and Backspace. Do not synthesize keys or rewrite the user's profile to compensate.
+Reset the previous mask when a device is disconnected or reassigned. Apply deadzones to analog axes before converting them into menu events. A repeat timer for menu navigation should be separate from analog movement.
 
-If a controller appears in the launcher but not in the game, inspect native input ownership and Steam Input before changing SDL/XInput code. For this runtime, disable Steam Input for FFXII and **restart the game** before reassessing device routing. Launcher detection alone does not establish which input reaches the native consumer.
+SDL is an alternative input library, not an additional native game subsystem. If choosing it, use its documented device identity and event APIs for the selected SDL version. Do not merge SDL and XInput index numbers as if they identify the same device. Steam Input can change which virtual device the game sees; its effect must be established for the particular configuration, not prescribed as a universal on/off rule.
 
-## Admit frontend navigation before a field actor exists
-Title and Load Game menus must retain native D-pad navigation while the co-op field session initializes. Do not claim custom directional ownership merely because the mod is enabled. Set the field-navigation latch only after gameplay readiness, a coherent world signature and a materialized active party are present. Do not use a startup timeout to release those directions.
+## Native actor resolution
 
-## Transfer the complete role after KO or selection
-Use one shared role identity for movement, commands, selectors, target indicators, HP palette and menu presentation. On KO, choose only a living, command-eligible, active party actor that is not owned by another enabled player. Include eligible guests. Re-read the session before committing; Stop, Stone, a disappearing actor or an incompatible execution state must not become a destination merely because HP is positive.
+For the reference executable, `0x31B7E0` accepts the 32-bit identity used by the native manual-command wrapper and returns a live actor or null. It first checks world readiness and delegates to native handle/object resolution. Its return value can cease to be valid after a scene transition.
 
-If no free actor exists, keep the player in reserve and block their gameplay input from reaching another player's native leader. Keep Party, Pause and Character Select available under the appropriate frontend policy. Permit an explicit selection of an occupied living character: transfer that character to the selecting player and move the displaced player to the outgoing/reserve role. P1 retains camera input while in reserve.
+Do not cache a pointer merely because the persistent character remains in the party. Resolve the handle again at the game-thread operation that uses it. Retain the full handle; a displayed name or party-list position does not replace it.
 
-Commit the shared identity, increment role generation, retire old menu/target state, refresh actors/catalog identities and invalidate character-dependent presentation in the same transaction. A movement-only override leaves menus and HP colors attached to the old owner. Distinguish field KO from a town's forced native actor; a dead battle record must not immobilize the native town avatar. Preserve held Flee across an ordinary valid character swap without leaking other held menu edges.
+## Input ownership must be implemented
+
+Vanilla has a native leader and native menu input. An independent input system must define which events it consumes and which reach that existing path. If it handles a Confirm edge, forwarding the same edge can trigger two actions. Keep title/load menus and modal dialogs under their own policy.
+
+Keyboard bindings must be read from the actual game configuration and native interpretation. Do not hardcode Space, Backspace or controller face-button labels as universal meanings. Device discovery alone does not establish that gameplay routing or native command submission is working.
 
 ---
 

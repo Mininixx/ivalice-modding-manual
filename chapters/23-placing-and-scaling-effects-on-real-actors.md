@@ -2,27 +2,33 @@
 
 [← Chapter index](../README.md#chapters)
 
-Resolve a generation-bearing handle and choose an anchor appropriate to the visual.
+An actor's persistent record, live object, model, skeleton and attachment are separate objects. Use the native handle resolver before selecting an anchor.
 
-## Resolve identity before reading a model
-The global actor array is published through `0x208E688`, with count at `0x208E6A0`. The bounded reader rejects counts above 512 and uses an actor stride of `0xF50`, actor ID at `+8` and keep pointer at `+0x698`. These are build-specific facts, not a universal game SDK.
+## Reference object layout
 
-Use native handle resolution (`0x2E9B80`, followed by the appropriate model path at `0x3326C0`) rather than interpreting an actor slot as a model-resource index. The current binding also validates the generation bits `(handle >> 20) & 0x7FF` against the object generation at `+0x16`, checks the object kind and obtains the correct payload.
+For the executable in [Address reference](30-native-addresses-and-hook-ownership.md), actor-array data is exposed through globals `0x208E688` and `0x208E6A0`. The associated actor layout has stride `0xF50`, a 32-bit identity at `+8` and a battle-record pointer at `+0x698`. Confirm the actual allocation/count before iterating; an arbitrary fixed upper bound is not a substitute for the container's extent.
 
-## There is no single correct “actor position”
-| Visual purpose | Useful reference |
+The handle/object path at `0x2E9B80` and model-related path at `0x3326C0` are useful native investigation points. Their full signatures must be recovered before direct calls. Handle bits, object kind and generation must be checked using the native resolver's own logic; do not turn a handle into an array offset by guessing.
+
+## Choose an anchor by purpose
+
+| Purpose | Data to recover |
 | --- | --- |
-| Ground-attached footprint | Validated feet position |
-| Normal target-centered impact | Native model circle center, at `model+0x670` |
-| Persistent halo | Authenticated head joint and its current transform |
-| Blade-sized projectile | Equipped weapon geometry/socket span |
+| Ground effect | Actor's native ground/feet position |
+| Body-centred impact | Model's native circle/impact centre |
+| Head attachment | Current head joint transform |
+| Weapon attachment | Equipped weapon's socket and model transform |
 
-In the current binding, radius comes from different payload offsets for supported object kinds. The published circle radius already includes a factor of 1.3. Keep the full sizing formula visible to avoid applying the same Slow-derived multiplier twice. A user-requested “20% larger” belongs at one explicit final stage, not independently in extraction, conversion and rendering.
+The model-circle centre used by one native path is at model `+0x670`. Establish that the pointer is the expected model type before reading it. That offset does not describe every actor or visual object.
 
-Measure the **visible** reference geometry, such as a Distiller's circular rim; exclude transparent vertices that inflate the bounds. Scale for actual target size and model placement.
+For a joint attachment, compose the local joint transform with the model and world transforms using the engine's matrix convention. Verify row/column order and handedness with a known translation and rotation before combining matrices.
 
-Retire placements when the target generation, battle/location identity or save epoch changes. A pointer that remains nonzero across a loading screen does not make the old attachment valid.
+## Scale once, in a stated space
+
+Choose whether size is fixed in world units, relative to a model radius or relative to visible mesh bounds. Apply that choice at one explicit stage. Do not multiply by a model scale already included in the selected world transform.
+
+Exclude fully transparent geometry when measuring a visible rim or outline. Reacquire the attachment when the model changes, and retire it when the handle, scene or native object generation changes.
 
 ---
 
-[← Previous chapter](22-getting-imported-effects-into-the-native-scene.md) · [Chapter index](../README.md#chapters) · [Next chapter →](24-building-blade-aligned-projectiles-with-one-impact.md)
+[← Previous chapter](22-native-effect-resources-and-scene-submission.md) · [Chapter index](../README.md#chapters) · [Next chapter →](24-weapon-animation-and-hit-timing.md)

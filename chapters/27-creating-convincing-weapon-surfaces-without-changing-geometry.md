@@ -2,20 +2,27 @@
 
 [← Chapter index](../README.md#chapters)
 
-Treat the UV layout, native alpha and internal material binding as part of the artwork.
+A native weapon's appearance depends on mesh, UVs, textures, internal resource names and material state. A diffuse edit changes only part of that system.
 
-## Start from the material actually used by the weapon
-For a diffuse-only weapon edit, preserve geometry, rig, normal and specular maps. The private Broadsword example uses `w9300 / 0x770800`, derived from `w2105`, with a 256×128 diffuse. Inspect every referencing inventory record, including retired/private clones, before changing a shared binding.
+## Find the resource actually used
 
-Identify the material's diffuse import and the texture container's internal export name. Renaming the outer `.dds.phyre` file is insufficient. Match the internal DDS export name to the resource requested by the material; a correct outer filename with an old internal name can render a white weapon.
+Resolve the equipped weapon record to its model and material resources. Record every model variant or equipment record sharing those resources before editing them. A shared texture can affect more than one inventory item.
 
-## Preserve the hilt from geometry-derived masks
-Derive protected masks from the actual mesh faces and UVs. In the Broadsword example, faces 10–45 form the blade; the other 40 faces cover hilt, guard and pommel. Protect those UVs with a two-texel margin instead of using a broad rectangular atlas selection.
+Inspect both the outer `.dds.phyre` filename and the container's internal exported resource name. A material can request the internal name; renaming only the outer file does not establish a new binding.
 
-Fit new blade artwork into the native UV layout. Preserve alpha, hidden RGB and protected pixels through repacking. Account for private resource-name substitutions when comparing container geometry.
+Use the public [FFXII format/tool repository](https://github.com/StyuDEV/ffxii-tza-tools) to inspect model and texture containers when its documented formats match the input. Read each tool's input/output contract before repacking; a glTF export is not itself a game-ready replacement.
 
-## What texture alone can suggest
-Painted facets and internal-looking light can suggest crystal; controlled veins can suggest stone; directional highlights can suggest brushed metal; cracks with bright cores can suggest heated material. Their success depends on the existing mesh, shader, UV density and lighting. A diffuse edit cannot create real refraction, new silhouette geometry or guaranteed light emission from an opaque material.
+## Preserve the intended geometry and material
+
+For a texture-only edit, retain vertex positions, rigging, UV coordinates, normals and the material's existing normal/specular bindings. Separate blade, guard, grip and pommel using the actual mesh and UV islands rather than guessed rectangles.
+
+Create masks from the relevant UV triangles, with padding appropriate to the sampler. Account for overlapping UV islands: changing one texel may affect several surfaces. Preserve alpha and palette representation where the resource requires them.
+
+## Understand the limit of a diffuse texture
+
+Painted highlights can suggest polished metal or crystal, but they do not create new geometry, physical refraction or guaranteed emission. Inspect the native shader and material before promising those effects. A material parameter edit is a different change from a diffuse edit and should be documented separately.
+
+Retain an unchanged native input and compare the rebuilt container's structure, names, dimensions and pixel format with it. Keep the original asset outside the edited output directory. A successfully exported preview does not prove that the native resource loader will accept the replacement.
 
 ---
 

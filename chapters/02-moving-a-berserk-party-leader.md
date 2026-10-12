@@ -2,28 +2,41 @@
 
 [← Chapter index](../README.md#chapters)
 
-Separate locomotion ownership from status effects and command eligibility.
+The native status classifier separates movement restrictions from action restrictions. Changing the movement decision can preserve Berserk's status and combat behavior.
 
-## Let native input calculate movement
-Use the native status-classification boundary at **preferred VA `0x23B166`**, inside `0x23B040`. This is an instruction site, not a callable function and not an RVA. With image base `0x120000`, its RVA is `0x11B166`. Match the five original bytes `25 3B 40 00 88` before installing the detour; return to `0x23B16B`.
+## Exact instruction boundary
 
-At this boundary, `RDI` is the native leader actor and `EAX` and `EDX` contain the combined status. `actor+0x698` points to battle KEEP; combine permanent status at `KEEP+0x3C` with temporary status at `KEEP+0x64`. Berserk is bit 27.
+Use the executable fingerprint in [Address reference](30-native-addresses-and-hook-ownership.md). The relevant instructions are:
 
-For the authenticated P1 owner only, execute `AND EAX,0x8000403B` instead of `AND EAX,0x8800403B`. For every other actor or inactive publication, replay the original AND. Preserve the flags from that final AND for the following `CMOVE`; comparisons against the ownership record must occur before it. Preserve scratch registers, stack balance and the full displaced instruction.
+| Preferred VA | Original bytes | Meaning |
+| --- | --- | --- |
+| `0x23B166` | `25 3B 40 00 88` | `AND EAX, 0x8800403B` |
+| `0x23B16B` | `0F 44 CB` | `CMOVE ECX, EBX`, consuming those flags |
+| `0x23B173` | `81 E2 3B 00 00 88` | A separate `AND EDX, 0x8800003B` |
 
-The native consumer then retains responsibility for keyboard/gamepad input, movement magnitude and turning. Do not calculate P1 heading in the external worker or force physics direction each update. Keep P2/P3 steering separate.
+Immediately before the first AND, the code loads `actor+0x698`, reads DWORDs at `+0x64` and `+0x3C` from that object, combines them with OR and copies the combined status into EAX. The actor is in RDI at this instruction site. These register meanings are local to this path, not a function prototype.
 
-## Publish permission and identity only
-Use `build_berserk_native_movement_gate`, `install_berserk_native_movement_gate` and the current `write_p1_berserk_command` implementation in the authenticated frozen runtime. The extension-owned P1 state reserves `0x40` bytes: actor at `+0x08`, physics at `+0x10`, legacy active at `+0x18`, native permission at `+0x3C`. Resolve its base from the installed layout; these are not native actor fields.
+## Smallest change for movement classification
 
-Revoke native permission before changing identity, keep legacy active at zero, publish valid actor/physics, and arm native permission last. Revoke on status loss, owner change, KO, loading, modal UI or invalid identity. The retired vector helper must return `CLC; RET`, allowing its caller to continue through the native route. Do not restore the old heading/magnitude/facing publications.
+Berserk occupies bit 27 in this status word. Removing only that bit from the first mask changes `0x8800403B` to `0x8000403B`. The replacement instruction is:
 
-The native gate checks permission, compares the published actor against `RDI`, and rechecks permission. Treat this as the existing ownership protocol, not as a general atomic snapshot guarantee. A change to publication synchronization also requires a matching consumer and a new runtime layout identity.
+```text
+Preferred VA 0x23B166
+Before: 25 3B 40 00 88
+After:  25 3B 40 00 80
+```
 
-## Preserve status and action restrictions
-Leave `EDX`, both KEEP status banks and the second mask at **`0x23B173`** unchanged. That second instruction applies `AND EDX,0x8800003B` for native action availability. Removing Berserk from the movement mask must not clear the status, remove its combat effects or silently enable every action. All other bits in the movement mask retain their native restrictions.
+The instruction length stays five bytes, so the following CMOVE still reads flags from the AND. This alters the classification at that site for every actor that reaches it. It is not an actor-filtered patch.
 
-The separate manual-command policy at `0x311D72` may change `F7 C1 3B 20 00 88` to `F7 C1 3B 20 00 80`. Preserve its existing scope and any Reforged Blood Berserk rules; do not use it as the movement fix. Register the new movement hook in process-lifetime ownership and layout metadata. A process with an older incompatible layout requires a clean restart instead of live topology conversion.
+For an actor-specific extension, intercept this instruction, compare the current actor with the chosen live actor, execute the selected AND last, then return to `0x23B16B`. Preserve every register used by the filter. No comparison or arithmetic may overwrite the AND's flags before the CMOVE. Any ownership record used by that filter must be implemented by the extension itself.
+
+Leave the second mask, both stored status banks and the native movement calculation unchanged. Do not clear the Berserk status to obtain movement.
+
+## Action admission is independent
+
+The manual-command body contains `TEST ECX,0x8800203B` at `0x311D72`. That is a different restriction boundary. Changing it would change command admission and is outside the movement-only patch described above. See [Native command submission](04-independent-menus-with-native-command-execution.md).
+
+Check the executable hash and exact instruction bytes before applying either an in-memory or file patch. A preferred VA must be translated before use; it is not a file offset. This chapter provides the instruction-level change, not a DLL loader or patch installer.
 
 ---
 

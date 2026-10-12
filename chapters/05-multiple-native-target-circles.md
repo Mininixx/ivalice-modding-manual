@@ -2,25 +2,33 @@
 
 [← Chapter index](../README.md#chapters)
 
-Give each selection its own native node and protect the manager’s temporary state.
+The native target marker is managed by an engine-owned UI object. Increasing a count limit does not create independent marker ownership.
 
-## Capacity and ownership are separate requirements
-The native capacity check at **VA `0x291959`** compares against two. For three-player capacity, change `83 F8 02` to `83 F8 03`, after matching the original bytes. This is only the capacity gate: it does not create three independently owned selections by itself.
+## Native boundaries
 
-The target UI manager is reached through **VA `0x209BE80`**. The implementation calls native retargeting at `0x2917E0` through a dispatcher on the UI tick (`0x28E480`, original callee `0x290CF0`). This ensures the object operation occurs at the expected game-thread boundary.
+Use the [reference executable](30-native-addresses-and-hook-ownership.md) before interpreting these addresses.
 
-## The retarget transaction
-1. Authenticate the manager, target and owned circle node.
-2. Save manager head/current pointers at `+0x10F00` and `+0x10EF0`.
-3. Temporarily point those fields at the circle being retargeted.
-4. Call the native retarget routine with the requested target and variant.
-5. Restore the manager pointers and inspect the resulting node identity.
+| Preferred VA / field | Role to inspect |
+| --- | --- |
+| `0x291959` | `83 F8 02`, a comparison against two |
+| `0x209BE80` | Target UI manager pointer |
+| `0x2917E0` | Native retargeting routine |
+| Manager `+0x10F00` / `+0x10EF0` | Head/current pointers involved in retargeting |
+| `0x28E480` → `0x290CF0` | UI update call boundary |
 
-Creation additionally protects existing nodes while native code chooses/reuses a slot. Preserve that logic rather than repeatedly invoking a singleton factory and assuming it allocates a new object each time.
+Changing the immediate in `CMP EAX,2` to three changes only that comparison. Other allocation limits, list operations and destruction paths remain in force.
 
-The publication check matches **both target and palette**. A correct target with another player’s palette is still a wrong publication. On shutdown restore only the patch and nodes that this controller still owns.
+## Recover the object lifecycle
 
-**Failure to avoid:** two players selecting the same enemy and stealing each other’s circle; a new target being published over P1’s native node; stale node reuse after a map change. A capacity patch alone will not prevent these failures.
+Follow the native menu path that creates its first marker. Record the factory's arguments, returned object, list insertion and destroy/reset calls. Then follow the same path when the player changes target or closes the menu. Distinguish a newly allocated node from a reused native node.
+
+Before calling the retarget routine for an additional node, establish its complete prototype and the containing manager type from the native caller. The addresses above do not supply that prototype. In particular, do not cast the function to a guessed `(target, color)` signature.
+
+If native retargeting uses the manager's current pointers, an extension must save them, select its node, perform the native operation and restore them within the same game-thread transaction. Preserve native nodes already in the list. On allocation failure, restore the manager before returning.
+
+Store ownership of each additional node in the extension that creates it. On scene change, discard stale node identities; on teardown, remove only those additional nodes through the recovered native cleanup path. Never free engine objects with an unrelated allocator.
+
+This chapter identifies investigation and interception boundaries. A complete marker factory/destructor ABI is not specified here; resolve it before implementing creation.
 
 ---
 

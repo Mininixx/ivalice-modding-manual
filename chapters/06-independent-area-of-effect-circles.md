@@ -2,15 +2,27 @@
 
 [← Chapter index](../README.md#chapters)
 
-Area previews use another native object family and another list.
+Area previews and single-target markers use different native object paths. Their allocation and list contracts must be recovered separately.
 
-## Do not reuse the single-target-circle contract
-The area controller uses the factory at **VA `0x2911D0`**, list append at `0x3F34D0`, and manager list field `+0x10F40`. Its owned objects carry distinct player tags (`AOP1`, `AOP2`, `AOP3`). Radius is supplied to the area factory; it is not inferred from the on-screen diameter of a single-target marker.
+## Locate the native area preview
 
-Native creation is dispatched on the UI thread. The dispatcher temporarily isolates the list, creates the requested object, restores the existing list and appends the owned object through the native operation. Preserve failure cleanup as carefully as the success path.
+On the [reference executable](30-native-addresses-and-hook-ownership.md), investigate factory `0x2911D0`, list append `0x3F34D0` and target-manager list field `+0x10F40`. Follow a native area-targeting action from menu selection through its factory call. Identify which argument supplies radius and which object anchors position.
 
-## Borrow settings without losing the user’s settings
-Area rendering is controlled by bit 22 in the settings flags at `[0x215E6E0]+4`. The controller remembers whether that bit was already enabled. On release it removes only the enablement it introduced, retaining unrelated flags. If the settings object changes, release the old ownership before acquiring the new object.
+Record the factory's full arguments and return ownership. The function addresses alone do not establish a callable signature. Preserve the list's sentinel, linking convention and native destruction path; do not assume a standard C++ container layout.
+
+## Additional previews require new ownership
+
+For an additional preview, the new implementation needs an entry containing its native object identity, target identity, radius and scene lifetime. These are design requirements, not an existing game library. Create or update objects on the native UI thread.
+
+If temporarily isolating a native list during creation, retain its original head and all existing links. Restore them on success and failure before appending the new object with the native operation. Never treat an unchanged node pointer as proof that a second allocation succeeded.
+
+## Preserve the user's display setting
+
+The area-display option is represented by bit 22 in the DWORD at `[0x215E6E0]+4` in the reference layout. Read the settings pointer and current flags before changing it. If an extension enables the bit, remember whether it was already enabled and preserve all unrelated bits.
+
+A user can change the setting while the extension is active. Restore only state still owned by the extension; do not blindly write an old full DWORD. Reacquire the setting object if its identity changes.
+
+For preview size, use the native action's radius convention. Screen diameter is affected by perspective and is not a reliable world-space measurement.
 
 ---
 
