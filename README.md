@@ -12,7 +12,7 @@ Updated: 12 October 2026. All 31 chapters are included below.
 | --- | --- |
 | Co-op and input | Independent movement and menus, native Berserk movement, XInput/SDL routing, keyboard ownership, guests and reserve players |
 | Camera and presentation | Shared camera, area transitions, Party/Pause suspension, target circles, action lines and in-game HUD rendering |
-| Combat and abilities | Action/effect allocation, native command queues, resource payment, damage, buffs, Mix and Pockets |
+| Combat and abilities | Action/effect allocation, native command queues, resource payment, damage and buffs |
 | Saves and progression | Versioned save extensions, inventory bounds, license ownership, LP costs, board regions and class-specific icons |
 | Effects and assets | FFX effect extraction, particle programs, native scene submission, weapon attachments, impact timing, audio and materials |
 | Implementation | Address relocation, hook ownership, frozen runtime modules, dependency contracts and handoffs between developers or AI assistants |
